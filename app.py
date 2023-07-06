@@ -1,113 +1,118 @@
-import requests
 import streamlit as st
-from PIL import Image
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
+from sklearn.metrics import precision_score, recall_score
+from sklearn.metrics import plot_confusion_matrix, plot_roc_curve, plot_precision_recall_curve
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 
+def main():
+    st.title("Binary Classification WebApp")    
+    st.markdown("Are your mushroom edible or poisonous? 🍄")
 
-# Find more emojis here: https://www.webfx.com/tools/emoji-cheat-sheet/
-st.set_page_config(page_title="My Webpage", page_icon=":tada:", layout="wide")
+    st.sidebar.title("Binary Classification")
+    st.sidebar.markdown("Are your mushroom edible or poisonous?")
 
+    @st.cache(persist = True)
+    def load_data():
+        data = pd.read_csv('mushrooms.csv')
+        label = LabelEncoder()
 
-def load_lottieurl(url):
-    r = requests.get(url)
-    if r.status_code != 200:
-        return None
-    return r.json()
+        for col in data.columns:
+            data[col] = label.fit_transform(data[col])
+        
+        return data
 
+    @st.cache(persist = True)
+    def split(df):
+        y = df.type
+        x = df.drop(columns = ['type'])
+        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = 0.3, random_state = 0)
 
-# Use local CSS
-def local_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+        return x_train, x_test, y_train, y_test
+    
+    def plot_metrics(metrics_list):
+        if 'Confusion Matrix' in metrics_list:
+            st.subheader("Confusion Matrix")
+            plot_confusion_matrix(model, x_test, y_test, display_labels = class_names)
+            st.pyplot()
 
+        if 'ROC Curve' in metrics_list:
+            st.subheader("ROC Curve")
+            plot_roc_curve(model, x_test, y_test)
+            st.pyplot()
 
-local_css("style/style.css")
+        if 'Precision-Recall Curve' in metrics_list:
+            st.subheader("Precision-Recall Curve")
+            plot_precision_recall_curve(model, x_test, y_test)
+            st.pyplot()
+            
+    df = load_data()
+    x_train, x_test, y_train, y_test = split(df)
+    class_names = ['edible', 'poisonous']
+    st.sidebar.subheader("Choose Classifier")
+    classifier = st.sidebar.selectbox("Classifier", ("Support Vector Machine (SVM)", "Logistic Regression", "Random Forest"))
+    
+    if classifier == "Support Vector Machine (SVM)":
+        st.sidebar.subheader("Model Hyperparameters")
+        C = st.sidebar.number_input("C (Regularization parameter)", 0.01, 10.0, step = 0.01, key = 'C')
+        kernel = st.sidebar.radio("Kernel", ("rbf", "linear"), key = 'kernel')
+        gamma = st.sidebar.radio("Gamma (Kernel Coefficient)", ("scale", "auto"), key = 'auto')
+    
+        metrics = st.sidebar.multiselect("What metrics to plot?", ('Confusion Matrix', 'ROC Curve', 'Precision-Recall Curve'))
+    
+        if st.sidebar.button("Classify", key = 'classify'):
+            st.subheader("Support Vector Machine (SVM) Results")
+            model = SVC(C = C, kernel = kernel, gamma = gamma)
+            model.fit(x_train, y_train)
+            accuracy = model.score(x_test, y_test)
+            y_pred = model.predict(x_test)
+            st.write("Accuracy: ", accuracy.round(2))
+            st.write("Precision: ", precision_score(y_test, y_pred, labels = class_names).round(2))
+            st.write("Recall: ", recall_score(y_test, y_pred, labels = class_names).round(2))
+            plot_metrics(metrics)
 
-# ---- LOAD ASSETS ----
-lottie_coding = load_lottieurl("https://assets5.lottiefiles.com/packages/lf20_fcfjwiyb.json")
-img_contact_form = Image.open("images/yt_contact_form.png")
-img_lottie_animation = Image.open("images/yt_lottie_animation.png")
+    if classifier == "Logistic Regression":
+        st.sidebar.subheader("Model Hyperparameters")
+        C = st.sidebar.number_input("C (Regularization parameter)", 0.01, 10.0, step = 0.01, key = 'C_LR')
+        max_iter = st.sidebar.slider("Maximum number of iterations", 100, 500, key = 'max_iter')
+        
+        metrics = st.sidebar.multiselect("What metrics to plot?", ('Confusion Matrix', 'ROC Curve', 'Precision-Recall Curve'))
+    
+        if st.sidebar.button("Classify", key = 'classify'):
+            st.subheader("Logistic Regression Results")
+            model = LogisticRegression(C = C, max_iter = max_iter)
+            model.fit(x_train, y_train)
+            accuracy = model.score(x_test, y_test)
+            y_pred = model.predict(x_test)
+            st.write("Accuracy: ", accuracy.round(2))
+            st.write("Precision: ", precision_score(y_test, y_pred, labels = class_names).round(2))
+            st.write("Recall: ", recall_score(y_test, y_pred, labels = class_names).round(2))
+            plot_metrics(metrics)            
 
-# ---- HEADER SECTION ----
-with st.container():
-    st.subheader("Hi, I am Sven :wave:")
-    st.title("A Data Analyst From Germany")
-    st.write(
-        "I am passionate about finding ways to use Python and VBA to be more efficient and effective in business settings."
-    )
-    st.write("[Learn More >](https://pythonandvba.com)")
-
-# ---- WHAT I DO ----
-with st.container():
-    st.write("---")
-    left_column, right_column = st.columns(2)
-    with left_column:
-        st.header("What I do")
-        st.write("##")
-        st.write(
-            """
-            On my YouTube channel I am creating tutorials for people who:
-            - are looking for a way to leverage the power of Python in their day-to-day work.
-            - are struggling with repetitive tasks in Excel and are looking for a way to use Python and VBA.
-            - want to learn Data Analysis & Data Science to perform meaningful and impactful analyses.
-            - are working with Excel and found themselves thinking - "there has to be a better way."
-
-            If this sounds interesting to you, consider subscribing and turning on the notifications, so you don’t miss any content.
-            """
-        )
-        st.write("[YouTube Channel >](https://youtube.com/c/CodingIsFun)")
-    with right_column:
-        st_lottie(lottie_coding, height=300, key="coding")
-
-# ---- PROJECTS ----
-with st.container():
-    st.write("---")
-    st.header("My Projects")
-    st.write("##")
-    image_column, text_column = st.columns((1, 2))
-    with image_column:
-        st.image(img_lottie_animation)
-    with text_column:
-        st.subheader("Integrate Lottie Animations Inside Your Streamlit App")
-        st.write(
-            """
-            Learn how to use Lottie Files in Streamlit!
-            Animations make our web app more engaging and fun, and Lottie Files are the easiest way to do it!
-            In this tutorial, I'll show you exactly how to do it
-            """
-        )
-        st.markdown("[Watch Video...](https://youtu.be/TXSOitGoINE)")
-with st.container():
-    image_column, text_column = st.columns((1, 2))
-    with image_column:
-        st.image(img_contact_form)
-    with text_column:
-        st.subheader("How To Add A Contact Form To Your Streamlit App")
-        st.write(
-            """
-            Want to add a contact form to your Streamlit website?
-            In this video, I'm going to show you how to implement a contact form in your Streamlit app using the free service ‘Form Submit’.
-            """
-        )
-        st.markdown("[Watch Video...](https://youtu.be/FOULV9Xij_8)")
-
-# ---- CONTACT ----
-with st.container():
-    st.write("---")
-    st.header("Get In Touch With Me!")
-    st.write("##")
-
-    # Documention: https://formsubmit.co/ !!! CHANGE EMAIL ADDRESS !!!
-    contact_form = """
-    <form action="https://formsubmit.co/YOUR@MAIL.COM" method="POST">
-        <input type="hidden" name="_captcha" value="false">
-        <input type="text" name="name" placeholder="Your name" required>
-        <input type="email" name="email" placeholder="Your email" required>
-        <textarea name="message" placeholder="Your message here" required></textarea>
-        <button type="submit">Send</button>
-    </form>
-    """
-    left_column, right_column = st.columns(2)
-    with left_column:
-        st.markdown(contact_form, unsafe_allow_html=True)
-    with right_column:
-        st.empty()
+    if classifier == "Random Forest":
+        st.sidebar.subheader("Model Hyperparameters")        
+        n_estimators = st.sidebar.number_input("The number of trees in the forest", 100, 5000, step = 10, key = 'n_estimators')
+        max_depth = st.sidebar.number_input("The maximum depth of the tree", 1, 20, step = 1, key = 'max_depth')
+        bootstrap = st.sidebar.radio("Bootstrap samples when building trees", ('True', 'False'), key = 'bootstrap')
+        metrics = st.sidebar.multiselect("What metrics to plot?", ('Confusion Matrix', 'ROC Curve', 'Precision-Recall Curve'))
+    
+        if st.sidebar.button("Classify", key = 'classify'):
+            st.subheader("Random Forest Results")
+            model = RandomForestClassifier(n_estimators = n_estimators, max_depth = max_depth, bootstrap = bootstrap, n_jobs = -1)
+            model.fit(x_train, y_train)
+            accuracy = model.score(x_test, y_test)
+            y_pred = model.predict(x_test)
+            st.write("Accuracy: ", accuracy.round(2))
+            st.write("Precision: ", precision_score(y_test, y_pred, labels = class_names).round(2))
+            st.write("Recall: ", recall_score(y_test, y_pred, labels = class_names).round(2))
+            plot_metrics(metrics)
+                        
+    if st.sidebar.checkbox("Show raw data", False):
+        st.subheader("Mushroom Data Set (Classification)")
+        st.write(df)
+    
+if __name__ == '__main__':
+    main()
